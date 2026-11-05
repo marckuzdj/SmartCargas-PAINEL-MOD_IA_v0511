@@ -1,0 +1,1 @@
+# SmartCargas-PAINEL-MOD_IA_v0511
