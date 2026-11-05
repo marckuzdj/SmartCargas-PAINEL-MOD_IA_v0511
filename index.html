@@ -3818,7 +3818,114 @@ function abrirDashboardKpiDetalhado(statusAlvoBruto) {
 	  console.log(`[CSV EXPORT] Base de Backlog gerada com sucesso contendo ${linhasDoArquivo.length - 1} registros retroativos.`);
 	}
 
-
+	/**
+	 * Executa a tradução de linguagem natural em parâmetros estruturados e filtra a RAM
+	 * 🔒 ROTA PROTEGIDA REGIONALIZADA
+	 */
+	async function processarComandoPorIA() {
+	  const inputComando = document.getElementById("input-comando-ia");
+	  const btnIa = document.getElementById("btn-perguntar-ia");
+	  const badgeStatus = document.getElementById("badge-status-ia");
+	  const divFeedback = document.getElementById("feedback-ia");
+	
+	  const textoComando = inputComando ? inputComando.value.trim() : "";
+	
+	  if (!textoComando || textoComando === "") {
+	    alert("⚠️ Por favor, digite uma pergunta ou comando para que a IA filtre o pátio.");
+	    return;
+	  }
+	
+	  // Captura o cache mestre da RAM carregado pelo painel
+	  const cacheMestreRomaneios = window.CACHE_DADOS_CSV_MIGRACAO_BRUTO || window.CACHE_DADOS_CSV_MIGRACAO || [];
+	
+	  if (!cacheMestreRomaneios || cacheMestreRomaneios.length === 0) {
+	    alert("⚠️ Não existem dados carregados no painel para que a IA possa filtrar.");
+	    return;
+	  }
+	
+	  // ⏳ Efeito visual de processamento
+	  if (btnIa) btnIa.disabled = true;
+	  if (badgeStatus) {
+	    badgeStatus.innerHTML = "Pensando...";
+	    badgeStatus.style.background = "#fef3c7";
+	    badgeStatus.style.color = "#d97706";
+	  }
+	  if (divFeedback) {
+	    divFeedback.style.display = "block";
+	    divFeedback.innerHTML = "🤖 Analisando comando e mapeando a filial...";
+	    divFeedback.style.color = "#7e22ce";
+	  }
+	
+	  const callbackIaName = "cbIA_" + Date.now();
+	  
+	  // =========================================================================
+	  // ⚡ CALLBACK QUE RECEBE OS PARÂMETROS DA IA E FILTRA LOCALMENTE EM MEMÓRIA
+	  // =========================================================================
+	  window[callbackIaName] = function(respostaServidor) {
+	    try {
+	      if (respostaServidor && respostaServidor.success) {
+	        console.log("[IA ENGINE] Filtros protegidos recebidos da UF:", respostaServidor.filtros);
+	        const filtrosMapeados = JSON.parse(respostaServidor.filtros);
+	
+	        // Varredura atômica em milissegundos direto na memória RAM da tela
+	        const dadosFiltradosPelaIA = cacheMestreRomaneios.filter(linha => {
+	          let bateComFiltro = true;
+	
+	          const rNum   = (linha.numRomaneio || linha.NUMROMANEIO || "").toString().toUpperCase();
+	          const rTrans = (linha.transp || linha.TRANSP || "").toString().toUpperCase();
+	          const rOper  = (linha.operador || linha.OPERADOR || "").toString().toUpperCase();
+	          const rStat  = (linha.status || linha.STATUS || "").toString().toUpperCase();
+	          const rUf    = (linha.uf || linha.UF || "").toString().toUpperCase();
+	
+	          if (filtrosMapeados.numRomaneio && !rNum.includes(filtrosMapeados.numRomaneio.toUpperCase())) bateComFiltro = false;
+	          if (filtrosMapeados.transp && !rTrans.includes(filtrosMapeados.transp.toUpperCase())) bateComFiltro = false;
+	          if (filtrosMapeados.operador && !rOper.includes(filtrosMapeados.operador.toUpperCase())) bateComFiltro = false;
+	          if (filtrosMapeados.status && !rStat.includes(filtrosMapeados.status.toUpperCase())) bateComFiltro = false;
+	          if (filtrosMapeados.uf && !rUf.includes(filtrosMapeados.uf.toUpperCase())) bateComFiltro = false;
+	
+	          return bateComFiltro;
+	        });
+	
+	        // 🎯 AJUSTE DE REINJEÇÃO: Altere os nomes abaixo pelas suas funções nativas do HTML
+	        if (typeof renderizarDadosTabela === "function") renderizarDadosTabela(dadosFiltradosPelaIA);
+	        if (typeof atualizarCardsKPIs === "function") atualizarCardsKPIs(dadosFiltradosPelaIA);
+	
+	        if (divFeedback) {
+	          divFeedback.innerHTML = `✅ Filtro aplicado! Localizado(s) <b>${dadosFiltradosPelaIA.length} romaneio(s)</b> correspondente(s).`;
+	          divFeedback.style.color = "#16a34a"; // Verde Nu
+	        }
+	      } else {
+	        if (divFeedback) {
+	          divFeedback.innerHTML = "❌ O servidor da regional encontrou uma falha de mapeamento.";
+	          divFeedback.style.color = "#dc2626";
+	        }
+	      }
+	    } catch (e) {
+	      console.error("[IA CRITICAL ERROR]", e);
+	      if (divFeedback) divFeedback.innerHTML = "❌ Falha crítica de decodificação sintática dos dados.";
+	    } finally {
+	      if (btnIa) btnIa.disabled = false;
+	      if (badgeStatus) { 
+	        badgeStatus.innerHTML = "Pronto"; 
+	        badgeStatus.style.background = "#f3e8ff"; 
+	        badgeStatus.style.color = "#7e22ce"; 
+	      }
+	      delete window[callbackIaName];
+	    }
+	  };
+	
+	  // 🚀 DISPARO DA PROPRIEDADE: Bate dinamicamente na rota da UF Regional Ativa selecionada pelo usuário! [INDEX]
+	  const urlChamadaIa = ENDPOINT_REGIONAL_ATIVO + 
+	    "?action=chamarIaDoPacio" + 
+	    "&comando=" + encodeURIComponent(textoComando) + 
+	    "&callback=" + callbackIaName;
+	
+	  const scriptIaTag = document.createElement("script");
+	  scriptIaTag.src = urlChamadaIa;
+	  scriptIaTag.async = true;
+	  scriptIaTag.onload = function() { if (scriptIaTag.parentNode) document.body.removeChild(scriptIaTag); };
+	  document.body.appendChild(scriptIaTag);
+	}
 		
     </script>
 
